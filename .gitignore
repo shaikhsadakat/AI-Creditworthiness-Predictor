@@ -1,0 +1,17 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.log
+
+# Node.js
+/backend/node_modules
+/backend/package-lock.json
+
+# Machine Learning Artifacts (Can be large or regenerated)
+/ml-api/credit_model.pkl
+/ml-api/scaler.pkl
+
+# Security and Credentials (CRITICAL: DO NOT COMMIT THESE)
+/backend/serviceAccountKey.json
+.env

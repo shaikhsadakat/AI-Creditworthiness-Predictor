@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Creditworthiness Predictor</title>
+    <!-- Load Tailwind CSS via CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Chart.js for the visual feedback -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Custom styling to ensure the chart looks correct -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 120px;
+            max-height: 150px;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <header class="text-center mb-10">
+            <h1 class="text-4xl lg:text-5xl font-extrabold text-indigo-700">AI Creditworthiness Predictor</h1>
+            <p class="mt-3 text-lg text-slate-600 max-w-3xl mx-auto">Assess credit eligibility for the unbanked using alternative financial data.</p>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+
+            <div class="lg:col-span-3 bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200">
+                <h2 class="text-2xl font-bold text-slate-800 mb-6 flex items-center">
+                    <span class="text-3xl mr-3">📝</span> Alternative Data Input
+                </h2>
+                <p class="text-sm text-slate-500 mb-6">Input values for non-traditional data points. These proxies for stability are sent to the ML service to calculate the score.</p>
+                <form id="predictor-form" class="space-y-6">
+                    
+                    <div>
+                        <label for="monthlyIncome" class="flex justify-between items-center text-md font-medium text-slate-700">
+                            <span>💰 Estimated Monthly Income ($)</span>
+                            <span class="font-semibold text-indigo-600">$<span id="monthlyIncomeValue">3500</span></span>
+                        </label>
+                        <input type="range" id="monthlyIncome" name="monthly_income" min="500" max="15000" step="100" value="3500" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer mt-2">
+                    </div>
+
+                    <div>
+                        <label for="monthlyRent" class="flex justify-between items-center text-md font-medium text-slate-700">
+                           <span>🏠 Monthly Rent/Housing ($)</span>
+                           <span class="font-semibold text-indigo-600">$<span id="monthlyRentValue">1200</span></span>
+                        </label>
+                        <input type="range" id="monthlyRent" name="monthly_rent" min="0" max="5000" step="50" value="1200" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer mt-2">
+                    </div>
+
+                    <div>
+                        <label for="onTimeUtilities" class="flex justify-between items-center text-md font-medium text-slate-700">
+                           <span>💡 Utility Payments On-Time (Last 12 Months)</span>
+                           <span class="font-semibold text-indigo-600"><span id="onTimeUtilitiesValue">12</span> / 12</span>
+                        </label>
+                        <input type="range" id="onTimeUtilities" name="on_time_utilities" min="0" max="12" value="12" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer mt-2">
+                    </div>
+
+                    <div>
+                        <label for="employmentYears" class="flex justify-between items-center text-md font-medium text-slate-700">
+                           <span>⏳ Employment Duration (Years)</span>
+                           <span class="font-semibold text-indigo-600"><span id="employmentYearsValue">2.0</span> years</span>
+                        </label>
+                        <input type="range" id="employmentYears" name="employment_years" min="0" max="20" step="0.5" value="2.0" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer mt-2">
+                    </div>
+
+                    <button type="submit" id="calculateButton" class="w-full py-3 px-4 rounded-lg text-white font-bold text-lg transition duration-300 shadow-md bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50" disabled>
+                        Calculate Creditworthiness
+                    </button>
+                    <div id="loadingMessage" class="hidden text-center text-indigo-600 font-medium">Calculating...</div>
+                </form>
+            </div>
+
+            <div class="lg:col-span-2 space-y-8">
+                <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-4 flex items-center">
+                        <span class="text-3xl mr-3">📊</span> Prediction Result
+                    </h2>
+                    <p class="text-sm text-slate-500 mb-6">This card shows the score calculated by the Python ML service and returned via the Express proxy.</p>
+                    <div id="result-placeholder" class="text-center py-8 text-slate-500 italic">
+                        Checking server status...
+                    </div>
+                    <div id="result-display" class="hidden space-y-4">
+                        <div class="text-center">
+                            <p class="text-lg text-slate-600">Simulated Credit Score (300-850)</p>
+                            <p id="score" class="text-7xl font-extrabold text-indigo-700">--</p>
+                            <div id="risk-level-badge" class="mt-2 inline-block px-4 py-1 text-lg font-bold rounded-full">
+                                --
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="scoreChart"></canvas>
+                        </div>
+                        <div class="pt-4 border-t border-slate-200 text-center">
+                            <p class="text-md text-slate-600">Probability of Default (Simulated)</p>
+                            <p id="probability" class="text-3xl font-bold text-red-600">--</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-4 flex items-center">
+                        <span class="text-3xl mr-3">🛠️</span> Project Architecture
+                    </h2>
+                    <p class="text-sm text-slate-500 mb-4">Hybrid MERN-style stack using free tools for deployment.</p>
+                    <div class="space-y-3 text-slate-600">
+                        <p class="font-bold">🌐 Frontend (HTML/JS/Tailwind):</p>
+                        <ul class="list-disc list-inside ml-4">
+                            <li>The user interface you see now.</li>
+                        </ul>
+                        <p class="font-bold">💻 Backend Proxy (Node.js/Express on Port 3001):</p>
+                        <ul class="list-disc list-inside ml-4">
+                            <li>Routes requests to the ML brain and handles future database storage.</li>
+                        </ul>
+                        <p class="font-bold">🧠 ML API (Python/Flask on Port 5000):</p>
+                        <ul class="list-disc list-inside ml-4">
+                            <li>The core calculation engine for credit scores.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- NEW HISTORY BLOCK -->
+                <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-4 flex items-center">
+                        <span class="text-3xl mr-3">🕒</span> Prediction History
+                    </h2>
+                    <p class="text-sm text-slate-500 mb-6">Your last 10 simulated predictions saved in Firebase Firestore.</p>
+                    <div id="history-container" class="space-y-3">
+                        <!-- History items will be injected here by JavaScript -->
+                        <p class="text-center text-slate-400 italic" id="history-loading">Loading history...</p>
+                    </div>
+                </div>
+                <!-- END NEW HISTORY BLOCK -->
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const ML_PROXY_URL = 'http://localhost:3001/api/predict';
+        const HISTORY_URL = 'http://localhost:3001/api/history';
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.getElementById('predictor-form');
+            const calculateButton = document.getElementById('calculateButton');
+            const loadingMessage = document.getElementById('loadingMessage');
+            const resultPlaceholder = document.getElementById('result-placeholder');
+            const resultDisplay = document.getElementById('result-display');
+            const scoreEl = document.getElementById('score');
+            const probabilityEl = document.getElementById('probability');
+            const riskLevelBadgeEl = document.getElementById('risk-level-badge');
+            const historyContainer = document.getElementById('history-container');
+            
+            let scoreChart;
+
+            const inputs = {
+                monthly_income: document.getElementById('monthlyIncome'),
+                monthly_rent: document.getElementById('monthlyRent'),
+                on_time_utilities: document.getElementById('onTimeUtilities'),
+                employment_years: document.getElementById('employmentYears'),
+            };
+
+            const valueDisplays = {
+                monthly_income: document.getElementById('monthlyIncomeValue'),
+                monthly_rent: document.getElementById('monthlyRentValue'),
+                on_time_utilities: document.getElementById('onTimeUtilitiesValue'),
+                employment_years: document.getElementById('employmentYearsValue'),
+            };
+
+            function updateValueDisplay(name, value) {
+                if (valueDisplays[name]) {
+                    valueDisplays[name].textContent = value;
+                }
+            }
+
+            // Sync slider inputs to display numbers
+            Object.keys(inputs).forEach(key => {
+                updateValueDisplay(key, inputs[key].value);
+                inputs[key].addEventListener('input', (e) => {
+                    updateValueDisplay(key, e.target.value);
+                });
+            });
+
+            // --- API Status Check ---
+            async function checkApiStatus() {
+                try {
+                    // Check if the Express proxy is running
+                    const response = await fetch(ML_PROXY_URL.replace('/api/predict', '/'));
+                    if (response.ok) {
+                        resultPlaceholder.textContent = 'Ready! Enter data and click Calculate.';
+                        calculateButton.disabled = false;
+                        calculateButton.textContent = 'Calculate Creditworthiness';
+                        fetchHistory();
+                    } else {
+                        throw new Error('Backend Offline');
+                    }
+                } catch (error) {
+                    resultPlaceholder.textContent = 'Error: Express Proxy (Port 3001) is not running.';
+                    calculateButton.disabled = true;
+                    // Keep trying to connect
+                    setTimeout(checkApiStatus, 3000); 
+                }
+            }
+            checkApiStatus(); 
+
+            // --- Utility Functions ---
+            function getRiskColor(level) {
+                if (level === 'Low') return 'rgba(34, 197, 94, 0.7)'; // Green
+                if (level === 'Moderate') return 'rgba(245, 158, 11, 0.7)'; // Yellow
+                return 'rgba(239, 68, 68, 0.7)'; // Red
+            }
+
+            function getRiskClass(risk) {
+                if (risk === 'Low') return 'bg-green-100 text-green-800';
+                if (risk === 'Moderate') return 'bg-yellow-100 text-yellow-800';
+                return 'bg-red-100 text-red-800';
+            }
+            // --- End Utility Functions ---
+
+            // --- Charting Logic (using Chart.js) ---
+            function createOrUpdateChart(score, riskLevel) {
+                const ctx = document.getElementById('scoreChart').getContext('2d');
+                const riskZones = { high: 619, moderate: 719, low: 850 };
+                
+                const data = {
+                    labels: ['Credit Score'],
+                    datasets: [
+                        // Stack 1: Background Risk Zones 
+                        { label: 'High Risk (300-619)', data: [riskZones.high - 300], backgroundColor: 'rgba(239, 68, 68, 0.3)', borderWidth: 1, stack: 'stack1' },
+                        { label: 'Moderate Risk (620-719)', data: [riskZones.moderate - riskZones.high], backgroundColor: 'rgba(245, 158, 11, 0.3)', borderWidth: 1, stack: 'stack1' },
+                        { label: 'Low Risk (720-850)', data: [riskZones.low - riskZones.moderate], backgroundColor: 'rgba(34, 197, 94, 0.3)', borderWidth: 1, stack: 'stack1' },
+                        // Stack 2: Your Score Marker
+                        {
+                            label: 'Your Score',
+                            data: [score - 300], 
+                            backgroundColor: getRiskColor(riskLevel),
+                            borderColor: getRiskColor(riskLevel).replace('0.7', '1'),
+                            borderWidth: 2,
+                            barThickness: 30,
+                            stack: 'stack2'
+                        }
+                    ]
+                };
+
+                const options = {
+                    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                    scales: {
+                        x: {
+                            min: 0, max: 550, stacked: true, 
+                            ticks: { 
+                                stepSize: 100, 
+                                callback: (value) => 300 + value 
+                            },
+                            grid: { drawBorder: false }
+                        },
+                        y: { stacked: true, display: false }
+                    }
+                };
+
+                if (scoreChart) {
+                    // Update existing chart data
+                    scoreChart.data.datasets[3].data = [score - 300];
+                    scoreChart.data.datasets[3].backgroundColor = getRiskColor(riskLevel);
+                    scoreChart.data.datasets[3].borderColor = getRiskColor(riskLevel).replace('0.7', '1');
+                    scoreChart.update();
+                } else {
+                    // Create new chart
+                    scoreChart = new Chart(ctx, { type: 'bar', data: data, options: options });
+                }
+            }
+
+            // --- History Fetching Logic ---
+            async function fetchHistory() {
+                try {
+                    const response = await fetch(HISTORY_URL);
+                    const historyData = await response.json();
+
+                    historyContainer.innerHTML = ''; // Clear the loading message
+
+                    if (historyData.error) {
+                        historyContainer.innerHTML = `<p class="text-center text-red-500">Error fetching history: ${historyData.error}</p>`;
+                        return;
+                    }
+
+                    if (historyData.length === 0) {
+                        historyContainer.innerHTML = `<p class="text-center text-slate-400">No predictions saved yet. Calculate a score to start.</p>`;
+                        return;
+                    }
+
+                    historyData.forEach(item => {
+                        const historyItem = document.createElement('div');
+                        historyItem.className = 'flex justify-between items-center p-3 border border-slate-100 rounded-lg transition hover:bg-slate-100';
+                        
+                        const riskClass = getRiskClass(item.risk);
+                        
+                        historyItem.innerHTML = `
+                            <div>
+                                <span class="text-xl font-bold text-indigo-700">${item.score}</span>
+                                <span class="text-sm ml-2 px-2 py-0.5 rounded-full ${riskClass}">${item.risk}</span>
+                            </div>
+                            <div class="text-right text-sm text-slate-500">
+                                <p class="font-medium">${item.date}</p>
+                                <p>Income: $${item.inputs.monthly_income}</p>
+                            </div>
+                        `;
+                        historyContainer.appendChild(historyItem);
+                    });
+
+                } catch (error) {
+                    historyContainer.innerHTML = `<p class="text-center text-red-500">Failed to connect to history API. (Port 3001)</p>`;
+                    console.error('Failed to fetch history:', error);
+                }
+            }
+            // --- End History Fetching Logic ---
+
+
+            // --- Form Submission Logic ---
+            form.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                
+                calculateButton.disabled = true;
+                loadingMessage.classList.remove('hidden');
+                resultPlaceholder.classList.add('hidden');
+                resultDisplay.classList.add('hidden');
+
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData.entries());
+
+                // Prepare payload with numerical data
+                const payload = {
+                    monthly_income: parseFloat(data.monthly_income),
+                    monthly_rent: parseFloat(data.monthly_rent),
+                    on_time_utilities: parseFloat(data.on_time_utilities),
+                    employment_years: parseFloat(data.employment_years),
+                };
+
+                try {
+                    // Send request to Express Proxy (Port 3001)
+                    const response = await fetch(ML_PROXY_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+
+                    if (!response.ok || result.error) {
+                        throw new Error(result.error || 'Prediction failed. Check Python API (5000) and Express (3001) logs.');
+                    }
+                    
+                    const score = result.credit_score;
+                    const riskLevel = result.risk_level;
+                    const probability = result.default_probability;
+                    
+                    // Set color and text for the risk badge
+                    const badgeClass = getRiskClass(riskLevel) + ' border border-gray-300';
+
+                    // Update the HTML elements
+                    scoreEl.textContent = score;
+                    riskLevelBadgeEl.textContent = riskLevel;
+                    riskLevelBadgeEl.className = `mt-2 inline-block px-4 py-1 text-lg font-bold rounded-full ${badgeClass}`;
+                    probabilityEl.textContent = `${(probability * 100).toFixed(0)}%`;
+                    
+                    // Update the Chart.js visualization
+                    createOrUpdateChart(score, riskLevel);
+
+                    resultDisplay.classList.remove('hidden');
+
+                    // NEW: Fetch history after successful prediction
+                    fetchHistory(); 
+
+                } catch (error) {
+                    resultPlaceholder.textContent = `Error: ${error.message}. Ensure both servers are running.`;
+                    resultPlaceholder.classList.remove('hidden');
+                    resultDisplay.classList.add('hidden');
+                } finally {
+                    calculateButton.disabled = false;
+                    loadingMessage.classList.add('hidden');
+                }
+            });
+        });
+    </script>
+
+</body>
+</html>
